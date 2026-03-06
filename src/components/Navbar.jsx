@@ -38,6 +38,16 @@ const Navbar = () => {
   const [authLoading, setAuthLoading] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [highlight, setHighlight] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setHighlight(false);
+    }, 4000); // highlight for 4 seconds on first visit
+
+    return () => clearTimeout(timer);
+  }, []);
+
   /* ================= FETCH USER ROLE & PLAN ================= */
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -197,11 +207,16 @@ const Navbar = () => {
             onClick={() => navigate("/")}
             className="flex items-center cursor-pointer"
           >
-            <div className="w-9 h-9 md:w-10 md:h-10 rounded-full overflow-hidden bg-white flex items-center justify-center">
+            <div
+              className={`relative w-12 h-12 md:w-14 md:h-14 rounded-full overflow-hidden 
+      bg-white flex items-center justify-center transition-all duration-500
+      ${highlight ? "ring-4 ring-orange-400 animate-pulse scale-110" : ""}
+      hover:scale-110 hover:ring-2 hover:ring-orange-400`}
+            >
               <img
                 src="/Kridana logo.png"
                 alt="Kridana Logo"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain p-1"
               />
             </div>
           </div>
