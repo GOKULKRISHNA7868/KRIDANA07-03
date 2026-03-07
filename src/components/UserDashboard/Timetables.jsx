@@ -10,7 +10,7 @@ import {
 import { auth, db } from "../../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import dayjs from "dayjs";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 const weeklyDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthlyDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const yearlyMonths = [
@@ -47,79 +47,65 @@ export default function StudentTimetable() {
   const [attendance, setAttendance] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [viewMode, setViewMode] = useState("weekly"); // weekly | monthly | yearly
-
+  const { selectedStudentUid } = useSelectedStudent();
   const today = dayjs();
-
+  const activeStudentId = selectedStudentUid || user?.uid;
   /* ---------------- AUTH ---------------- */
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
-      if (!u) return;
-      setUser(u);
+    if (!activeStudentId) return;
 
-      console.log("[Student] Logged in UID:", u.uid);
+    const fetchStudentProfile = async () => {
+      console.log("Loading student profile:", activeStudentId);
 
-      // 🔹 Load student profile to get instituteId
-      const sRef = doc(db, "students", u.uid);
+      const sRef = doc(db, "students", activeStudentId);
       const sSnap = await getDoc(sRef);
+
       if (sSnap.exists()) {
         const data = sSnap.data();
-        console.log("[Student] Profile:", data);
+        console.log("Student Profile:", data);
         setStudentProfile(data);
       }
-    });
+    };
 
-    return () => unsub();
-  }, []);
+    fetchStudentProfile();
+  }, [activeStudentId]);
 
   /* ---------------- FETCH TIMETABLE ---------------- */
   useEffect(() => {
-    if (!studentProfile?.instituteId || !user) return;
+    if (!studentProfile?.instituteId || !activeStudentId) return;
 
     const fetchTimetable = async () => {
-      console.log(
-        "[StudentTimetable] Fetch timetable for institute:",
-        studentProfile.instituteId,
-      );
-
       const q = query(
         collection(db, "institutes", studentProfile.instituteId, "timetable"),
-        where("students", "array-contains", user.uid),
+        where("students", "array-contains", activeStudentId),
       );
 
       const snap = await getDocs(q);
       const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
-      console.log("[StudentTimetable] Timetable data:", data);
       setClasses(data);
     };
 
     fetchTimetable();
-  }, [studentProfile, user]);
-
+  }, [studentProfile, activeStudentId]);
   /* ---------------- FETCH ATTENDANCE ---------------- */
   useEffect(() => {
-    if (!studentProfile?.instituteId || !user) return;
+    if (!studentProfile?.instituteId || !activeStudentId) return;
 
     const fetchAttendance = async () => {
-      console.log(
-        "[StudentTimetable] Fetch attendance for institute:",
-        studentProfile.instituteId,
-      );
-
       const q = query(
         collection(db, "institutes", studentProfile.instituteId, "attendance"),
-        where("studentId", "==", user.uid),
+        where("studentId", "==", activeStudentId),
       );
 
       const snap = await getDocs(q);
       const data = snap.docs.map((d) => d.data());
 
-      console.log("[StudentTimetable] Attendance data:", data);
       setAttendance(data);
     };
 
     fetchAttendance();
-  }, [studentProfile, user]);
+  }, [studentProfile, activeStudentId]);
 
   /* ---------------- FILTERS ---------------- */
   const filteredClasses = classes.filter((c) => c.viewMode === viewMode);
@@ -155,145 +141,134 @@ export default function StudentTimetable() {
         : yearlyMonths;
 
   /* ---------------- UI ---------------- */
- return (
-  <div className="bg-white p-6 rounded-lg min-h-screen text-black">
-   <h1 className="text-2xl font-bold mb-4 text-orange-600 flex items-center gap-2">
-  My Timetable
-</h1>
+  return (
+    <div className="bg-white p-6 rounded-lg min-h-screen text-black">
+      <h1 className="text-2xl font-bold mb-4 text-orange-600 flex items-center gap-2">
+        My Timetable
+      </h1>
 
-    {/* MODE SELECTOR */}
-    <div className="mb-4 flex gap-3">
-      {["weekly", "monthly", "yearly"].map((m) => (
-        <button
-          key={m}
-          onClick={() => setViewMode(m)}
-          className={`px-4 py-2 rounded ${
-            viewMode === m
-              ? "bg-orange-500 text-white"
-              : "bg-gray-200"
-          }`}
-        >
-          {m.toUpperCase()}
-        </button>
-      ))}
-    </div>
-
-    {/* ATTENDANCE SUMMARY */}
-    <div className="mb-6 p-4 bg-orange-50 rounded-xl border">
-      <p className="text-lg font-semibold">
-         Attendance Percentage:{" "}
-        <span className="text-orange-600">
-          {attendancePercent()}%
-        </span>
-      </p>
-    </div>
-
-    {/* TIMETABLE GRID */}
-    <div className="overflow-x-auto">
-      <div
-        className="grid"
-        style={{ gridTemplateColumns: `100px repeat(${columns.length},1fr)` }}
-      >
-        <div></div>
-
-        {columns.map((d) => (
-          <div
-            key={d}
-            className="text-center font-semibold bg-orange-100 py-2"
+      {/* MODE SELECTOR */}
+      <div className="mb-4 flex gap-3">
+        {["weekly", "monthly", "yearly"].map((m) => (
+          <button
+            key={m}
+            onClick={() => setViewMode(m)}
+            className={`px-4 py-2 rounded ${
+              viewMode === m ? "bg-orange-500 text-white" : "bg-gray-200"
+            }`}
           >
-            {d}
-          </div>
+            {m.toUpperCase()}
+          </button>
         ))}
+      </div>
 
-        {times.map((time) => (
-          <React.Fragment key={time}>
-            <div className="bg-orange-100 p-2 font-semibold text-center">
-              {time}
+      {/* ATTENDANCE SUMMARY */}
+      <div className="mb-6 p-4 bg-orange-50 rounded-xl border">
+        <p className="text-lg font-semibold">
+          Attendance Percentage:{" "}
+          <span className="text-orange-600">{attendancePercent()}%</span>
+        </p>
+      </div>
+
+      {/* TIMETABLE GRID */}
+      <div className="overflow-x-auto">
+        <div
+          className="grid"
+          style={{ gridTemplateColumns: `100px repeat(${columns.length},1fr)` }}
+        >
+          <div></div>
+
+          {columns.map((d) => (
+            <div
+              key={d}
+              className="text-center font-semibold bg-orange-100 py-2"
+            >
+              {d}
             </div>
+          ))}
 
-            {columns.map((day) => {
-              const cls = filteredClasses.find(
-                (c) => c.day === day && c.time === time
-              );
+          {times.map((time) => (
+            <React.Fragment key={time}>
+              <div className="bg-orange-100 p-2 font-semibold text-center">
+                {time}
+              </div>
 
-              const att = getAttendance(day, time);
+              {columns.map((day) => {
+                const cls = filteredClasses.find(
+                  (c) => c.day === day && c.time === time,
+                );
 
-              if (!cls)
+                const att = getAttendance(day, time);
+
+                if (!cls)
+                  return (
+                    <div key={day + time} className="border min-h-[70px]" />
+                  );
+
                 return (
                   <div
                     key={day + time}
-                    className="border min-h-[70px]"
-                  />
+                    onClick={() => setSelectedClass({ cls, att })}
+                    className={`cursor-pointer p-2 rounded text-sm text-center border ${
+                      att?.status === "Absent"
+                        ? "bg-red-100 text-red-600"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    <p className="font-semibold">{cls.category}</p>
+                    <p className="text-xs">{cls.trainerName}</p>
+                  </div>
                 );
-
-              return (
-                <div
-                  key={day + time}
-                  onClick={() => setSelectedClass({ cls, att })}
-                  className={`cursor-pointer p-2 rounded text-sm text-center border ${
-                    att?.status === "Absent"
-                      ? "bg-red-100 text-red-600"
-                      : "bg-green-100 text-green-700"
-                  }`}
-                >
-                  <p className="font-semibold">
-                    {cls.category}
-                  </p>
-                  <p className="text-xs">
-                    {cls.trainerName}
-                  </p>
-                </div>
-              );
-            })}
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-
-    {/* CLASS DETAIL MODAL */}
-    {selectedClass && (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
-        <div className="bg-white p-6 rounded-xl w-96 shadow-lg">
-          <h2 className="text-xl font-bold mb-2 text-orange-600">
-            {selectedClass.cls.category}
-          </h2>
-          <p>Trainer: {selectedClass.cls.trainerName}</p>
-          <p>Day: {selectedClass.cls.day}</p>
-          <p>Time: {selectedClass.cls.time}</p>
-
-          <button
-            onClick={() => setSelectedClass(null)}
-            className="mt-4 w-full bg-orange-500 text-white py-2 rounded"
-          >
-            Close
-          </button>
+              })}
+            </React.Fragment>
+          ))}
         </div>
       </div>
-    )}
 
-    {/* ATTENDANCE CALENDAR */}
-    <div className="mt-8">
-      <h2 className="text-xl font-bold mb-3 text-orange-600">
-         Attendance Calendar
-      </h2>
+      {/* CLASS DETAIL MODAL */}
+      {selectedClass && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl w-96 shadow-lg">
+            <h2 className="text-xl font-bold mb-2 text-orange-600">
+              {selectedClass.cls.category}
+            </h2>
+            <p>Trainer: {selectedClass.cls.trainerName}</p>
+            <p>Day: {selectedClass.cls.day}</p>
+            <p>Time: {selectedClass.cls.time}</p>
 
-      <div className="grid grid-cols-7 gap-2">
-        {filteredAttendance.map((a, i) => (
-          <div
-            key={i}
-            className={`p-2 rounded text-center text-xs border ${
-              a.status === "Absent"
-                ? "bg-red-100 text-red-600"
-                : "bg-green-100 text-green-700"
-            }`}
-          >
-            {a.date}
-            <br />
-            {a.status}
+            <button
+              onClick={() => setSelectedClass(null)}
+              className="mt-4 w-full bg-orange-500 text-white py-2 rounded"
+            >
+              Close
+            </button>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* ATTENDANCE CALENDAR */}
+      <div className="mt-8">
+        <h2 className="text-xl font-bold mb-3 text-orange-600">
+          Attendance Calendar
+        </h2>
+
+        <div className="grid grid-cols-7 gap-2">
+          {filteredAttendance.map((a, i) => (
+            <div
+              key={i}
+              className={`p-2 rounded text-center text-xs border ${
+                a.status === "Absent"
+                  ? "bg-red-100 text-red-600"
+                  : "bg-green-100 text-green-700"
+              }`}
+            >
+              {a.date}
+              <br />
+              {a.status}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

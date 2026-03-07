@@ -35,6 +35,7 @@ import CustomerCentricPolicies from "../../pages/CustomerCentricPolicies";
 import PrivacyPolicy from "../../pages/Privacy";
 import ChatBoxTS from "./ChatBoxTS";
 import UserMyAccount from "./UserMyAccount";
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 /* ============================= 
    SIDEBAR ITEMS
 ============================= */
@@ -94,10 +95,10 @@ const UserDashboard = () => {
   const [students, setStudents] = useState([]);
   const [trainers, setTrainers] = useState([]);
   const [familyStudents, setFamilyStudents] = useState([]);
-  const [selectedStudentUid, setSelectedStudentUid] = useState("");
+  const { selectedStudentUid, setSelectedStudentUid } = useSelectedStudent();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeletedSuccess, setShowDeletedSuccess] = useState(false);
-
+  const [familyStudentDetails, setFamilyStudentDetails] = useState([]);
   /* ============================= 
      AUTO LOGOUT (5 MIN)
   ============================= */
@@ -160,12 +161,31 @@ const UserDashboard = () => {
       }
 
       const familySnap = await getDoc(doc(db, "families", user.uid));
+
       if (familySnap.exists()) {
-        setRole("trainerstudent");
-        setFamilyStudents(familySnap.data().students || []);
-        setSelectedStudentUid(familySnap.data().students?.[0] || "");
-        setRoleLoading(false);
-        return;
+        const familyData = familySnap.data();
+
+        // If family linked to trainer
+        if (familyData.trainerId) {
+          setRole("trainerstudent");
+
+          setFamilyStudents(familyData.students || []);
+          setSelectedStudentUid(familyData.students?.[0] || "");
+
+          setRoleLoading(false);
+          return;
+        }
+
+        // If family linked to institute
+        if (familyData.instituteId) {
+          setRole("family");
+
+          setFamilyStudents(familyData.students || []);
+          setSelectedStudentUid(familyData.students?.[0] || "");
+
+          setRoleLoading(false);
+          return;
+        }
       }
 
       setRole("other");
@@ -208,9 +228,39 @@ const UserDashboard = () => {
    DEFAULT ACTIVE MENU BASED ON ROLE
 ============================= */
   useEffect(() => {
+    if (!familyStudents.length) return;
+
+    const fetchStudents = async () => {
+      const list = [];
+
+      for (let uid of familyStudents) {
+        // 1️⃣ Check institute students
+        let snap = await getDoc(doc(db, "students", uid));
+
+        if (!snap.exists()) {
+          // 2️⃣ If not found, check trainer students
+          snap = await getDoc(doc(db, "trainerstudents", uid));
+        }
+
+        if (snap.exists()) {
+          const data = snap.data();
+
+          list.push({
+            uid,
+            name: `${data.firstName || ""} ${data.lastName || ""}`,
+          });
+        }
+      }
+
+      setFamilyStudentDetails(list);
+    };
+
+    fetchStudents();
+  }, [familyStudents]);
+  useEffect(() => {
     if (!role) return;
 
-    if (role === "student") setActiveMenu("Dashboard");
+    if (role === "student" || role === "family") setActiveMenu("Dashboard");
     else if (role === "trainerstudent") setActiveMenu("TrainerDashboard");
     else setActiveMenu("WELCOME"); // or whatever default for trainer/other
   }, [role]);
@@ -272,7 +322,7 @@ const UserDashboard = () => {
      SIDEBAR ITEMS BASED ON ROLE
   ============================= */
   const sidebarItems =
-    role === "student"
+    role === "student" || role === "family"
       ? studentSidebarItems
       : role === "trainer"
         ? trainerSidebarItems
@@ -359,24 +409,28 @@ const UserDashboard = () => {
         </div>
 
         {/* FAMILY STUDENT SELECTION */}
-        {role === "trainerstudent" && familyStudents.length > 0 && (
-          <div className="bg-black rounded-xl p-3 mb-3">
-            <label className="block text-sm text-orange-400 font-semibold mb-1">
-              Select Student:
-            </label>
-            <select
-              value={selectedStudentUid}
-              onChange={(e) => setSelectedStudentUid(e.target.value)}
-              className="w-full border border-orange-400 rounded px-2 py-1 text-sm bg-gray-800 text-white"
-            >
-              {familyStudents.map((uid) => (
-                <option key={uid} value={uid}>
-                  {uid}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* FAMILY / TRAINER FAMILY STUDENT SELECTION */}
+
+        {(role === "family" || role === "trainerstudent") &&
+          familyStudents.length > 0 && (
+            <div className="bg-black rounded-xl p-3 mb-3">
+              <label className="block text-sm text-orange-400 font-semibold mb-1">
+                Select Student:
+              </label>
+
+              <select
+                value={selectedStudentUid}
+                onChange={(e) => setSelectedStudentUid(e.target.value)}
+                className="w-full border border-orange-400 rounded px-2 py-1 text-sm bg-gray-800 text-white"
+              >
+                {familyStudentDetails.map((student) => (
+                  <option key={student.uid} value={student.uid}>
+                    {student.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
         {/* Sidebar Items */}
         <div className="bg-black rounded-xl p-3 mb-3">

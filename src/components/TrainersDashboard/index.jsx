@@ -34,6 +34,7 @@ import TrainerEventsPage from "./Events/EventsPage";
 import Myaccountpage from "./MyAccountPage";
 import TrainerMyAccountLayout from "./MyAccount/MyAccountLayout";
 import { i } from "framer-motion/client";
+import Familiy from "./Familiy";
 /* =============================
    🔥 NEW ROLE STATE
 ============================= */
@@ -64,6 +65,7 @@ const TrainersDashboard = () => {
       label: "Customer & Management Settings",
       value: "Customer & Management Settings",
     },
+    { label: "Familiy Details", value: "Familiy Details" },
     { label: "Payment & Subscription", value: "Payment & Subscription" },
   ];
 
@@ -222,7 +224,7 @@ const TrainersDashboard = () => {
     if (item === "My Account") return setView("myAccount");
     if (item === "Customer & Management Settings")
       return setView("CustomerManagementSettings");
-
+    if (item === "Familiy Details") return setView("Familiy");
     if (item === "Payment & Subscription")
       return setView("PaymentsSubscriptionPage");
 
@@ -284,7 +286,8 @@ const TrainersDashboard = () => {
     if (view === "timetable") return <Timetable />;
     if (view === "events") return <TrainerEventsPage />;
     if (view === "CustomerManagementSettings")
-  return <MyAccountPage setActiveMenu={handleMenuClick} />;
+      return <MyAccountPage setActiveMenu={handleMenuClick} />;
+    if (view === "Familiy") return <Familiy />;
     if (view === "PaymentsSubscriptionPage")
       return <PaymentsSubscriptionPage />;
     if (view === "notConnected") {
@@ -325,7 +328,6 @@ const TrainersDashboard = () => {
             />
 
             {/* Add Button */}
-           
           </div>
         </div>
 

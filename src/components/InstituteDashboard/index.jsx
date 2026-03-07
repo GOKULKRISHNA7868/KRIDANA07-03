@@ -38,10 +38,12 @@ import ChatBox from "./ChatBox";
 import EventsPage from "./Events/EventsPage";
 import EventsSidebar from "./Events/EventsSidebar";
 import MyAccountPage from "./MyAccountPage";
+import Familiy from "./Familiy";
 const sidebarItems = [
   "Dashboard",
   "Customers Attendance",
   "Customer Details",
+  "Familiy Details",
   "Performance Reports",
   "Customer & Management Settings",
   "Fees Details",
@@ -195,7 +197,8 @@ const InstituteDashboard = () => {
         return <MyAccountLayout />;
       case "Customer & Management Settings":
         return <MyAccountPage setActiveMenu={setActiveMenu} />;
-
+      case "Familiy Details":
+        return <Familiy />;
       case "Payment & Subscription":
         return <PaymentsSubscriptionPage />;
       default:

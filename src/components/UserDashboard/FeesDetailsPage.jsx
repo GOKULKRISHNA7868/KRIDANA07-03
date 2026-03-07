@@ -10,7 +10,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 const PaymentOverview = () => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,19 +18,31 @@ const PaymentOverview = () => {
   const [totalPaid, setTotalPaid] = useState(0);
   const [showReminder, setShowReminder] = useState(false);
   const [generatedMonths, setGeneratedMonths] = useState([]);
-
+  const { selectedStudentUid } = useSelectedStudent();
+  const [user, setUser] = useState(null);
+  const activeStudentId = selectedStudentUid || user?.uid;
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      if (!user) {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      if (!u) {
         setLoading(false);
         return;
       }
+      setUser(u);
+    });
+
+    return () => unsub();
+  }, []);
+  useEffect(() => {
+    if (!activeStudentId) return;
+
+    const fetchStudentData = async () => {
+      setLoading(true);
 
       try {
         // =========================
-        // Fetch student data
+        // Fetch student profile
         // =========================
-        const studentRef = doc(db, "students", user.uid);
+        const studentRef = doc(db, "students", activeStudentId);
         const snap = await getDoc(studentRef);
 
         if (!snap.exists()) {
@@ -45,7 +57,9 @@ const PaymentOverview = () => {
         // Fetch payment history
         // =========================
         const feesRef = collection(db, "studentFees");
-        const q = query(feesRef, where("studentId", "==", user.uid));
+
+        const q = query(feesRef, where("studentId", "==", activeStudentId));
+
         const feesSnap = await getDocs(q);
 
         const history = [];
@@ -61,7 +75,7 @@ const PaymentOverview = () => {
         setTotalPaid(paidSum);
 
         // =========================
-        // AUTO GENERATE MONTHS FROM JOINING DATE
+        // Generate months
         // =========================
         if (studentData.joiningDate) {
           const joinDate = new Date(studentData.joiningDate);
@@ -102,29 +116,27 @@ const PaymentOverview = () => {
         }
 
         // =========================
-        // REMINDER LOGIC (3 days before due date)
+        // Reminder logic
         // =========================
         if (studentData.monthlyDate) {
-          const today = new Date();
-          const todayDate = today.getDate();
+          const today = new Date().getDate();
           const dueDay = Number(studentData.monthlyDate);
 
-          if (todayDate >= dueDay - 3 && todayDate < dueDay) {
+          if (today >= dueDay - 3 && today < dueDay) {
             setShowReminder(true);
           } else {
             setShowReminder(false);
           }
         }
       } catch (err) {
-        console.error("Error fetching student:", err);
+        console.error("Error fetching payment:", err);
       }
 
       setLoading(false);
-    });
+    };
 
-    return () => unsub();
-  }, []);
-
+    fetchStudentData();
+  }, [activeStudentId]);
   if (loading) return <div className="p-8">Loading...</div>;
   if (!student) return <div className="p-8">No Data Found</div>;
 

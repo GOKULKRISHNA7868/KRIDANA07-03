@@ -69,6 +69,7 @@ import PaymentAndRefundPolicy from "./pages/PaymentAndRefundPolicy";
 import ChatBox from "./pages/ChatBox.jsx";
 import PaymentSuccess from "./components/PaymentSuccess.jsx";
 import PaymentFailed from "./components/PaymentFailed.jsx";
+import { SelectedStudentProvider } from "./context/SelectedStudentContext";
 function App() {
   const location = useLocation();
 
@@ -88,128 +89,136 @@ function App() {
 
   return (
     <AuthProvider>
-      <CartProvider>
-        <WishlistProvider>
-          <div className="bg-white text-black min-h-screen">
-            {showNavbar && <Navbar />}
-            <ScrollToTop />
+      <SelectedStudentProvider>
+        <CartProvider>
+          <WishlistProvider>
+            <div className="bg-white text-black min-h-screen">
+              {showNavbar && <Navbar />}
+              <ScrollToTop />
 
-            <Routes>
-              {/* AUTH */}
-              <Route path="/about" element={<About />} />
-              <Route path="/career" element={<Career />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/" element={<Landing />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<Signup />} />
-              <Route path="/trainer-signup" element={<TrainerSignup />} />
-              <Route path="/institute-signup" element={<InstituteSignup />} />
-              <Route path="/chat/:chatId" element={<ChatBox />} />
+              <Routes>
+                {/* AUTH */}
+                <Route path="/about" element={<About />} />
+                <Route path="/career" element={<Career />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/" element={<Landing />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/signup" element={<Signup />} />
+                <Route path="/trainer-signup" element={<TrainerSignup />} />
+                <Route path="/institute-signup" element={<InstituteSignup />} />
+                <Route path="/chat/:chatId" element={<ChatBox />} />
 
-              {/* LANDING */}
-              <Route path="/RoleSelection" element={<RoleSelection />} />
-              <Route path="/reels" element={<ReelViewer />} />
-              <Route path="/trending-plays" element={<Reelspage />} />
-              {/* DASHBOARDS */}
-              <Route
-                path="/trainers/dashboard"
-                element={
-                  <ProtectedRoute role="trainer">
-                    <TrainersDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                {/* LANDING */}
+                <Route path="/RoleSelection" element={<RoleSelection />} />
+                <Route path="/reels" element={<ReelViewer />} />
+                <Route path="/trending-plays" element={<Reelspage />} />
+                {/* DASHBOARDS */}
+                <Route
+                  path="/trainers/dashboard"
+                  element={
+                    <ProtectedRoute role="trainer">
+                      <TrainersDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route
-                path="/institutes/dashboard"
-                element={
-                  <ProtectedRoute role="institute">
-                    <InstituteDashboard />
-                  </ProtectedRoute>
-                }
-              />
+                <Route
+                  path="/institutes/dashboard"
+                  element={
+                    <ProtectedRoute role="institute">
+                      <InstituteDashboard />
+                    </ProtectedRoute>
+                  }
+                />
 
-              <Route path="/user/dashboard" element={<UserDashboard />} />
+                <Route path="/user/dashboard" element={<UserDashboard />} />
 
-              {/* SELL */}
-              <Route
-                path="/sell-sports-material"
-                element={<SellSportsMaterial />}
-              />
-              <Route
-                path="/upload-product-details"
-                element={<UploadProductDetails />}
-              />
+                {/* SELL */}
+                <Route
+                  path="/sell-sports-material"
+                  element={<SellSportsMaterial />}
+                />
+                <Route
+                  path="/upload-product-details"
+                  element={<UploadProductDetails />}
+                />
 
-              {/* SHOP */}
-              <Route path="/shop" element={<ShopPage />} />
-              <Route path="/shop/:category" element={<ProductsGridPage />} />
-              <Route path="/addresspage" element={<AddAddressPage />} />
-              <Route path="/payment" element={<PaymentPage />} />
-              <Route path="/payment-failed" element={<PaymentFailed />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/cart" element={<CartPage />} />
-              <Route path="/wishlist" element={<WishlistPage />} />
+                {/* SHOP */}
+                <Route path="/shop" element={<ShopPage />} />
+                <Route path="/shop/:category" element={<ProductsGridPage />} />
+                <Route path="/addresspage" element={<AddAddressPage />} />
+                <Route path="/payment" element={<PaymentPage />} />
+                <Route path="/payment-failed" element={<PaymentFailed />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/wishlist" element={<WishlistPage />} />
 
-              {/* LIST & DETAILS */}
-              <Route path="/trainers" element={<ViewTrainers />} />
-              <Route path="/institutes" element={<ViewInstitutes />} />
-              <Route path="/trainers/:id" element={<TrainerDetailsPage />} />
-              <Route
-                path="/institutes/:id"
-                element={<InstituteDetailsPage />}
-              />
-              <Route path="/viewTrainers" element={<ViewTrainers />} />
-              <Route path="/viewInstitutes" element={<ViewInstitutes />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/paymentpolicy" element={<PaymentPolicy />} />
-              <Route
-                path="/customer-policies"
-                element={<CustomerCentricPolicies />}
-              />
-              <Route
-                path="/delivery-shipping-policy"
-                element={<DeliveryAndShippingPolicy />}
-              />
-              <Route
-                path="/payment-refund-policy"
-                element={<PaymentAndRefundPolicy />}
-              />
+                {/* LIST & DETAILS */}
+                <Route path="/trainers" element={<ViewTrainers />} />
+                <Route path="/institutes" element={<ViewInstitutes />} />
+                <Route path="/trainers/:id" element={<TrainerDetailsPage />} />
+                <Route
+                  path="/institutes/:id"
+                  element={<InstituteDetailsPage />}
+                />
+                <Route path="/viewTrainers" element={<ViewTrainers />} />
+                <Route path="/viewInstitutes" element={<ViewInstitutes />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/paymentpolicy" element={<PaymentPolicy />} />
+                <Route
+                  path="/customer-policies"
+                  element={<CustomerCentricPolicies />}
+                />
+                <Route
+                  path="/delivery-shipping-policy"
+                  element={<DeliveryAndShippingPolicy />}
+                />
+                <Route
+                  path="/payment-refund-policy"
+                  element={<PaymentAndRefundPolicy />}
+                />
 
-              {/* SERVICES */}
-              <Route path="/categories" element={<Categories />} />
-              <Route path="/services/martial-arts" element={<MartialArts />} />
-              <Route path="/services/teamball" element={<TeamBallSports />} />
-              <Route path="/services/racketsports" element={<RacketSports />} />
-              <Route path="/services/fitness" element={<Fitness />} />
-              <Route
-                path="/services/target-precision-sports"
-                element={<TargetPrecisionSports />}
-              />
-              <Route
-                path="/services/equestrian-sports"
-                element={<EquestrianSports />}
-              />
-              <Route
-                path="/services/adventure-outdoor-sports"
-                element={<AdventureOutdoorSports />}
-              />
-              <Route path="/services/ice-sports" element={<IceSports />} />
-              <Route path="/services/wellness" element={<Wellness />} />
-              <Route path="/services/dance" element={<Dance />} />
-              <Route path="/services/aquatic" element={<AquaticSports />} />
+                {/* SERVICES */}
+                <Route path="/categories" element={<Categories />} />
+                <Route
+                  path="/services/martial-arts"
+                  element={<MartialArts />}
+                />
+                <Route path="/services/teamball" element={<TeamBallSports />} />
+                <Route
+                  path="/services/racketsports"
+                  element={<RacketSports />}
+                />
+                <Route path="/services/fitness" element={<Fitness />} />
+                <Route
+                  path="/services/target-precision-sports"
+                  element={<TargetPrecisionSports />}
+                />
+                <Route
+                  path="/services/equestrian-sports"
+                  element={<EquestrianSports />}
+                />
+                <Route
+                  path="/services/adventure-outdoor-sports"
+                  element={<AdventureOutdoorSports />}
+                />
+                <Route path="/services/ice-sports" element={<IceSports />} />
+                <Route path="/services/wellness" element={<Wellness />} />
+                <Route path="/services/dance" element={<Dance />} />
+                <Route path="/services/aquatic" element={<AquaticSports />} />
 
-              <Route path="/plans" element={<Plans />} />
-              <Route
-                path="/book-demo/:instituteId"
-                element={<AvailableDemoClasses />}
-              />
-            </Routes>
-            {showFooter && <Footer />}
-          </div>
-        </WishlistProvider>
-      </CartProvider>
+                <Route path="/plans" element={<Plans />} />
+                <Route
+                  path="/book-demo/:instituteId"
+                  element={<AvailableDemoClasses />}
+                />
+              </Routes>
+              {showFooter && <Footer />}
+            </div>
+          </WishlistProvider>
+        </CartProvider>
+      </SelectedStudentProvider>
     </AuthProvider>
   );
 }

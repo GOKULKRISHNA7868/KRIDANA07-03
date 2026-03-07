@@ -10,7 +10,7 @@ import {
 import { auth, db } from "../../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import dayjs from "dayjs";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 const weeklyDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const monthlyDays = Array.from({ length: 31 }, (_, i) => i + 1);
 const yearlyMonths = [
@@ -47,9 +47,9 @@ export default function StudentTimetable() {
   const [attendance, setAttendance] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [viewMode, setViewMode] = useState("weekly");
-
+  const { selectedStudentUid } = useSelectedStudent();
   const today = dayjs();
-
+  const studentUid = selectedStudentUid || user?.uid;
   /* ---------------- AUTH ---------------- */
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -70,7 +70,7 @@ export default function StudentTimetable() {
 
   /* ---------------- FETCH TIMETABLE (NO INDEX, NO collectionGroup) ---------------- */
   useEffect(() => {
-    if (!user) return;
+    if (!studentUid) return;
 
     const fetchTimetable = async () => {
       console.log("[StudentTimetable] Fetch timetable via trainers scan");
@@ -101,7 +101,7 @@ export default function StudentTimetable() {
 
           if (
             Array.isArray(data.students) &&
-            data.students.includes(user.uid)
+            data.students.includes(studentUid)
           ) {
             console.log("✅ MATCH FOUND:", data);
 
@@ -121,7 +121,7 @@ export default function StudentTimetable() {
     };
 
     fetchTimetable();
-  }, [user]);
+  }, [studentUid]);
   /* ---------------- FETCH ATTENDANCE ---------------- */
   useEffect(() => {
     if (!studentProfile?.instituteId || !user) return;
@@ -129,7 +129,7 @@ export default function StudentTimetable() {
     const fetchAttendance = async () => {
       const q = query(
         collection(db, "institutes", studentProfile.instituteId, "attendance"),
-        where("studentId", "==", user.uid),
+        where("studentId", "==", studentUid),
       );
 
       const snap = await getDocs(q);
@@ -138,7 +138,7 @@ export default function StudentTimetable() {
     };
 
     fetchAttendance();
-  }, [studentProfile, user]);
+  }, [studentProfile, studentUid]);
 
   /* ---------------- FILTERS ---------------- */
   const filteredClasses = classes.filter((c) => c.viewMode === viewMode);

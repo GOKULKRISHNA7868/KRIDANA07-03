@@ -10,7 +10,7 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 const PaymentOverview = () => {
   const [student, setStudent] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,8 @@ const PaymentOverview = () => {
   const [totalPaid, setTotalPaid] = useState(0);
   const [generatedMonths, setGeneratedMonths] = useState([]);
   const [showReminder, setShowReminder] = useState(false);
-
+  const { selectedStudentUid } = useSelectedStudent();
+  const studentUid = selectedStudentUid || auth.currentUser?.uid;
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) {
@@ -30,8 +31,16 @@ const PaymentOverview = () => {
         // =========================
         // Fetch trainer student
         // =========================
-        const studentRef = doc(db, "trainerstudents", user.uid);
-        const snap = await getDoc(studentRef);
+        let snap = await getDoc(doc(db, "trainerstudents", studentUid));
+
+        if (!snap.exists()) {
+          snap = await getDoc(doc(db, "students", studentUid));
+        }
+
+        if (!snap.exists()) {
+          setLoading(false);
+          return;
+        }
 
         if (!snap.exists()) {
           setLoading(false);
@@ -45,7 +54,7 @@ const PaymentOverview = () => {
         // Fetch institute fees history
         // =========================
         const feesRef = collection(db, "institutesFees");
-        const q = query(feesRef, where("studentId", "==", user.uid));
+        const q = query(feesRef, where("studentId", "==", studentUid));
         const feesSnap = await getDocs(q);
 
         const history = [];
@@ -123,7 +132,7 @@ const PaymentOverview = () => {
     });
 
     return () => unsub();
-  }, []);
+  }, [studentUid]);
 
   if (loading) return <div className="p-8">Loading...</div>;
   if (!student) return <div className="p-8">No Data Found</div>;

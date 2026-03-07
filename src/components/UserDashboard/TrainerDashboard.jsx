@@ -20,7 +20,7 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 /* ---------------- Donut Component ---------------- */
 
 const Donut = ({ data }) => {
@@ -48,7 +48,7 @@ const Dashboard = () => {
   const [trainingMetrics, setTrainingMetrics] = useState(null);
   const [physicalMetrics, setPhysicalMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
-
+  const { selectedStudentUid } = useSelectedStudent();
   /* ---------------- FETCH DATA ---------------- */
 
   /* ---------------- FETCH DATA ---------------- */
@@ -61,13 +61,24 @@ const Dashboard = () => {
         setPhysicalMetrics(null);
 
         const user = auth.currentUser;
-        if (!user) {
+
+        const studentUid = selectedStudentUid || user?.uid;
+
+        if (!studentUid) {
           setLoading(false);
           return;
         }
 
-        const studentRef = doc(db, "trainerstudents", user.uid);
-        const studentSnap = await getDoc(studentRef);
+        let studentSnap = await getDoc(doc(db, "trainerstudents", studentUid));
+
+        if (!studentSnap.exists()) {
+          studentSnap = await getDoc(doc(db, "students", studentUid));
+        }
+
+        if (!studentSnap.exists()) {
+          setLoading(false);
+          return;
+        }
 
         if (!studentSnap.exists()) {
           setLoading(false);
@@ -82,7 +93,7 @@ const Dashboard = () => {
 
         const q = query(
           collection(db, `/trainers/${trainerId}/performancestudents`),
-          where("studentId", "==", user.uid),
+          where("studentId", "==", studentUid),
         );
 
         const snap = await getDocs(q);
@@ -149,7 +160,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, []);
+  }, [selectedStudentUid]);
 
   /* ---------------- Helpers ---------------- */
 

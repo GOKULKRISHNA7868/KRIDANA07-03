@@ -20,13 +20,13 @@ import {
   getDoc,
 } from "firebase/firestore";
 import { db, auth } from "../../firebase";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 /* ---------------- Donut Component ---------------- */
 
 const Donut = ({ data }) => {
   return (
-<PieChart width={180} height={180}>
-        <Pie
+    <PieChart width={180} height={180}>
+      <Pie
         data={data}
         innerRadius={70}
         outerRadius={90}
@@ -48,6 +48,12 @@ const Dashboard = () => {
   const [trainingMetrics, setTrainingMetrics] = useState(null);
   const [physicalMetrics, setPhysicalMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [students, setStudents] = useState([]);
+
+  const [role, setRole] = useState("student");
+  const { selectedStudentUid } = useSelectedStudent();
+
+  console.log("Current Student:", selectedStudentUid);
 
   /* ---------------- FETCH DATA ---------------- */
 
@@ -65,25 +71,67 @@ const Dashboard = () => {
           return;
         }
 
-        /* 🔹 Step 1: Student Profile */
+        /* 🔹 Check if user is student */
         const studentRef = doc(db, "students", user.uid);
         const studentSnap = await getDoc(studentRef);
 
-        if (!studentSnap.exists()) {
+        let targetStudentId = null;
+        let instituteId = null;
+
+        if (studentSnap.exists()) {
+          /* STUDENT LOGIN */
+          setRole("student");
+
+          const studentData = studentSnap.data();
+          instituteId = studentData.instituteId;
+          targetStudentId = user.uid;
+        } else {
+          /* FAMILY LOGIN */
+          setRole("family");
+
+          const familyRef = doc(db, "families", user.uid);
+          const familySnap = await getDoc(familyRef);
+
+          if (!familySnap.exists()) {
+            setLoading(false);
+            return;
+          }
+
+          const familyData = familySnap.data();
+          const studentIds = familyData.students || [];
+
+          if (studentIds.length === 0) {
+            setLoading(false);
+            return;
+          }
+
+          /* Load students list */
+          const studentDocs = await Promise.all(
+            studentIds.map((id) => getDoc(doc(db, "students", id))),
+          );
+
+          const studentList = studentDocs
+            .filter((s) => s.exists())
+            .map((s) => ({ id: s.id, ...s.data() }));
+
+          setStudents(studentList);
+
+          const selected = studentList.find((s) => s.id === selectedStudentUid);
+
+          targetStudentId = selected?.id || studentList[0].id;
+          instituteId = selected?.instituteId || studentList[0].instituteId;
+        }
+
+        if (!targetStudentId || !instituteId) {
           setLoading(false);
           return;
         }
 
-        const { instituteId } = studentSnap.data();
-        if (!instituteId) {
-          setLoading(false);
-          return;
-        }
+        /* 🔹 Query performance data */
 
-        /* 🔹 Step 2: Query performance data */
         const q = query(
           collection(db, `institutes/${instituteId}/performancestudents`),
-          where("studentId", "==", user.uid),
+          where("studentId", "==", targetStudentId),
         );
 
         const snap = await getDocs(q);
@@ -100,51 +148,37 @@ const Dashboard = () => {
         snap.docs.forEach((docSnap) => {
           const docData = docSnap.data();
 
-          if (!Array.isArray(docData.categories)) return;
-
-          docData.categories.forEach((cat) => {
-            (cat.subCategories || []).forEach((sub) => {
-              /* -------- Attendance -------- */
-              let attendance = null;
-
-              if (sub.attendance) {
-                attendance = sub.attendance;
-              } else if (
-                Array.isArray(sub.attendanceHistory) &&
-                sub.attendanceHistory.length
-              ) {
-                attendance =
-                  sub.attendanceHistory[sub.attendanceHistory.length - 1];
-              }
-
-              if (attendance) {
-                attendanceResult.push({
-                  title: `${sub.name} Sessions`,
-                  total: attendance.totalClasses || 0,
-                  present: attendance.presentClasses || 0,
-                  absent: attendance.absentClasses || 0,
-                });
-              }
-
-              /* -------- Training Metrics -------- */
-              if (sub.metrics) {
-                latestTraining = sub.metrics;
-              }
-
-              /* -------- Physical Metrics -------- */
-              if (sub.physicalFitness) {
-                latestPhysical = sub.physicalFitness;
-              }
+          /* Attendance */
+          if (docData.attendanceStats) {
+            attendanceResult.push({
+              title: `${docData.subCategory} Sessions`,
+              total: docData.attendanceStats.total || 0,
+              present: docData.attendanceStats.present || 0,
+              absent:
+                (docData.attendanceStats.total || 0) -
+                (docData.attendanceStats.present || 0),
             });
-          });
+          }
+
+          /* Training Metrics */
+          if (docData.metrics) {
+            latestTraining = docData.metrics;
+          }
+
+          /* Physical Metrics */
+          if (docData.physicalFitness) {
+            latestPhysical = docData.physicalFitness;
+          }
         });
 
         setAttendanceData(attendanceResult);
         setTrainingMetrics(latestTraining);
         setPhysicalMetrics(latestPhysical);
+
         setLoading(false);
       } catch (err) {
         console.error("Dashboard fetch error:", err);
+
         setAttendanceData([]);
         setTrainingMetrics(null);
         setPhysicalMetrics(null);
@@ -153,8 +187,7 @@ const Dashboard = () => {
     };
 
     fetchData();
-  }, []);
-
+  }, [selectedStudentUid]);
   /* ---------------- Helpers ---------------- */
 
   const parseScore = (val) => {
@@ -171,8 +204,9 @@ const Dashboard = () => {
   /* ---------------- UI ---------------- */
 
   return (
-   <div className="bg-white min-h-screen p-4 sm:p-6 lg:p-8">
+    <div className="bg-white min-h-screen p-4 sm:p-6 lg:p-8">
       {/* Top Cards */}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         <div className="bg-white border border-orange-400 rounded-lg p-5 flex items-center gap-4">
           <div className="bg-orange-100 p-3 rounded-md">
@@ -366,7 +400,7 @@ const Dashboard = () => {
       <div className="mt-10">
         <h2 className="text-lg font-semibold mb-6">Attendance Summary</h2>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {loading ? (
             <div className="col-span-3 text-center text-gray-500">
               Loading attendance...
