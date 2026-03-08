@@ -18,7 +18,7 @@ import {
   arrayRemove,
 } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
-
+import { useSelectedStudent } from "../../context/SelectedStudentContext";
 const ChatBox = () => {
   const [activeTab, setActiveTab] = useState("chats");
   const [screen, setScreen] = useState("chat");
@@ -39,6 +39,9 @@ const ChatBox = () => {
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [unreadCounts, setUnreadCounts] = useState({});
   const [renameValue, setRenameValue] = useState("");
+  const { selectedStudentUid } = useSelectedStudent();
+
+  const chatUid = selectedStudentUid || user?.uid;
   const getValidImage = (url, name) => {
     if (!url)
       return `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`;
@@ -132,7 +135,7 @@ const ChatBox = () => {
           const data = d.data();
           return {
             id: d.id,
-            uid: data.customerUid,
+            uid: data.customerUid || d.id,
             name: `${data.firstName || ""} ${data.lastName || ""}`.trim(),
             role: "student",
             profileImageUrl: data.studentPhotoUrl || data.profileImageUrl || "", // ✅ FETCH CLOUDINARY URL
@@ -170,11 +173,11 @@ const ChatBox = () => {
 
   /* ================= GROUPS ================= */
   useEffect(() => {
-    if (!user || !instituteId) return;
+    if (!chatUid || !instituteId) return;
 
     const q = query(
       collection(db, "groups"),
-      where("members", "array-contains", user.uid),
+      where("members", "array-contains", chatUid),
       where("instituteId", "==", instituteId),
     );
 
@@ -183,7 +186,7 @@ const ChatBox = () => {
     });
 
     return () => unsub();
-  }, [user, instituteId]);
+  }, [chatUid, instituteId]);
 
   /* ================= MESSAGES ================= */
   useEffect(() => {
@@ -203,14 +206,14 @@ const ChatBox = () => {
 
   const isAdmin = () => {
     const g = groups.find((g) => g.id === activeChat?.id);
-    return g?.adminId === user?.uid;
+    return g?.adminId === chatUid;
   };
 
   /* ================= START CHAT ================= */
   const startChat = async (target) => {
-    if (!user || !instituteId) return;
+    if (!chatUid || !instituteId) return;
 
-    const chatId = [user.uid, target.uid].sort().join("_");
+    const chatId = [chatUid, target.uid].sort().join("_");
     const chatRef = doc(db, "chats", chatId);
     const snap = await getDoc(chatRef);
 
@@ -218,7 +221,7 @@ const ChatBox = () => {
       await setDoc(chatRef, {
         type: "individual",
         instituteId,
-        members: [user.uid, target.uid],
+        members: [chatUid, target.uid],
         createdAt: serverTimestamp(),
         lastMessage: "",
       });
@@ -237,7 +240,7 @@ const ChatBox = () => {
     const gRef = doc(db, "groups", activeChat.id);
     const gSnap = await getDoc(gRef);
     if (!gSnap.exists()) return;
-    if (gSnap.data().adminId !== user.uid) return;
+    if (gSnap.data().adminId !== chatUid) return;
 
     await updateDoc(gRef, { name: renameValue });
     await updateDoc(doc(db, "chats", activeChat.id), { name: renameValue });
@@ -253,7 +256,7 @@ const ChatBox = () => {
     const gRef = doc(db, "groups", activeChat.id);
     const gSnap = await getDoc(gRef);
     if (!gSnap.exists()) return;
-    if (gSnap.data().adminId !== user.uid) return;
+    if (gSnap.data().adminId !== chatUid) return;
 
     const msgs = await getDocs(
       collection(db, "chats", activeChat.id, "messages"),
@@ -272,15 +275,16 @@ const ChatBox = () => {
 
   /* ================= SEND MESSAGE ================= */
   const sendMessage = async () => {
-    if (!text.trim() || !activeChat?.id || !user) return;
+    if (!text.trim() || !activeChat?.id || !chatUid) return;
 
     const msgRef = collection(db, "chats", activeChat.id, "messages");
 
     await addDoc(msgRef, {
       text: text.trim(),
-      senderId: user.uid,
+      senderId: chatUid,
+
       createdAt: serverTimestamp(),
-      readBy: [user.uid], // ✅ read receipt
+      readBy: [chatUid], // ✅ read receipt
     });
 
     await updateDoc(doc(db, "chats", activeChat.id), {
@@ -293,7 +297,7 @@ const ChatBox = () => {
 
   /* ================= AUTO READ ================= */
   useEffect(() => {
-    if (!activeChat?.id || !user) return;
+    if (!activeChat?.id || !chatUid) return;
 
     const markRead = async () => {
       const msgs = await getDocs(
@@ -301,24 +305,24 @@ const ChatBox = () => {
       );
       for (let m of msgs.docs) {
         const data = m.data();
-        if (!data.readBy?.includes(user.uid)) {
+        if (!data.readBy?.includes(chatUid)) {
           await updateDoc(doc(db, "chats", activeChat.id, "messages", m.id), {
-            readBy: [...(data.readBy || []), user.uid],
+            readBy: [...(data.readBy || []), chatUid],
           });
         }
       }
     };
 
     markRead();
-  }, [activeChat, user]);
+  }, [activeChat, chatUid]);
 
   /* ================= UNREAD COUNT ================= */
   useEffect(() => {
-    if (!user || !instituteId) return;
+    if (!chatUid || !instituteId) return;
 
     const q = query(
       collection(db, "chats"),
-      where("members", "array-contains", user.uid),
+      where("members", "array-contains", chatUid),
     );
 
     const unsub = onSnapshot(q, async (snap) => {
@@ -331,7 +335,7 @@ const ChatBox = () => {
         let unread = 0;
         msgs.forEach((m) => {
           const data = m.data();
-          if (!data.readBy?.includes(user.uid)) unread++;
+          if (!data.readBy?.includes(chatUid)) unread++;
         });
 
         counts[chatId] = unread;
@@ -341,13 +345,16 @@ const ChatBox = () => {
     });
 
     return () => unsub();
-  }, [user, instituteId]);
-
+  }, [chatUid, instituteId]);
+  useEffect(() => {
+    setActiveChat(null);
+    setMessages([]);
+  }, [chatUid]);
   /* ================= CREATE GROUP ================= */
   const submitCreateGroup = async () => {
     if (!groupName.trim() || selectedMembers.length === 0) return;
 
-    const members = [...new Set([user.uid, ...selectedMembers])];
+    const members = [...new Set([chatUid, ...selectedMembers])];
 
     const ref = await addDoc(collection(db, "groups"), {
       name: groupName,
@@ -371,7 +378,9 @@ const ChatBox = () => {
     setSelectedMembers([]);
     setScreen("chat");
   };
-
+  console.log("chatUid:", chatUid);
+  console.log("selectedStudentUid:", selectedStudentUid);
+  console.log("userUid:", user?.uid);
   /* ================= REMOVE PARTICIPANT ================= */
   const removeParticipant = async (uid) => {
     if (!activeChat?.id) return;
@@ -379,7 +388,7 @@ const ChatBox = () => {
     const gRef = doc(db, "groups", activeChat.id);
     const snap = await getDoc(gRef);
     if (!snap.exists()) return;
-    if (snap.data().adminId !== user.uid) return;
+    if (snap.data().adminId !== chatUid) return;
 
     await updateDoc(gRef, { members: arrayRemove(uid) });
     await updateDoc(doc(db, "chats", activeChat.id), {
@@ -526,7 +535,7 @@ const ChatBox = () => {
                   {m.name} ({m.role})
                 </span>
 
-                {isAdmin() && m.uid !== user.uid && (
+                {isAdmin() && m.uid !== chatUid && (
                   <button
                     onClick={() => removeParticipant(m.uid)}
                     className="text-red-500 text-sm"
@@ -546,7 +555,7 @@ const ChatBox = () => {
               {messages.map((m) => {
                 const sender = users.find((u) => u.uid === m.senderId);
 
-                return m.senderId === user?.uid ? (
+                return m.senderId === chatUid ? (
                   <div key={m.id} className="flex justify-end">
                     <div className="bg-orange-500 text-white px-4 py-2 rounded-xl text-sm flex flex-col gap-1 max-w-[75%]">
                       {activeChat?.type === "group" && (
@@ -632,15 +641,20 @@ const ChatBox = () => {
               ))
             : users
                 .filter((u) => {
-                  // if logged user is student → show only owner + trainers
-                  if (user?.uid !== instituteId) {
+                  // ❌ do not show yourself
+                  if (u.uid === chatUid) return false;
+
+                  // student or family student
+                  if (chatUid !== instituteId) {
                     return u.role === "owner" || u.role === "trainer";
                   }
-                  return true; // owner sees everyone
+
+                  // institute owner → show everyone
+                  return true;
                 })
                 .map((u) => {
-                  const isCurrentUser = u.uid === user?.uid;
-                  const chatId = [user?.uid, u.uid].sort().join("_");
+                  const isCurrentUser = u.uid === chatUid;
+                  const chatId = [chatUid, u.uid].sort().join("_");
                   return (
                     <div
                       key={u.uid}
